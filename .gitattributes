@@ -1,0 +1,2 @@
+scripts/update-attachments.sh text eol=lf
+extensions/attachments/* text eol=lf

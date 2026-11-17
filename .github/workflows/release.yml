@@ -13,6 +13,7 @@ jobs:
   # ── PyPI ────────────────────────────────────────────────────────────────────
   publish-pypi:
     name: Publish to PyPI
+    if: github.repository == 'ykoellmann/obsidian-mcp'
     needs: ci
     runs-on: ubuntu-latest
     permissions:
@@ -36,6 +37,7 @@ jobs:
   # ── Docker → GHCR ───────────────────────────────────────────────────────────
   publish-docker:
     name: Publish Docker image to GHCR
+    if: github.repository == 'ykoellmann/obsidian-mcp'
     needs: ci
     runs-on: ubuntu-latest
     permissions:

@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!kb_attachments.py
+!run.py
+!test_extension.py

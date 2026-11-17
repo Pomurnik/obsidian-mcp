@@ -1,5 +1,11 @@
 # obsidian-mcp
 
+> **Pomurnik fork — attachment operations:** this fork adds an opt-in extension
+> for moving, deleting and restoring individual attachments. The upstream code
+> remains intact. See [attachment deployment and updates](docs/attachments-fork.md).
+> The extension Dockerfile is `extensions/attachments/Dockerfile`; the root
+> Dockerfile still builds the upstream server without the extension.
+
 [![CI](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml)
 
 An MCP (Model Context Protocol) server for [Obsidian](https://obsidian.md) vaults. Connects Claude (or any MCP client) directly to your vault — read, write, search, navigate links, and manage notes, canvases, and kanban boards.

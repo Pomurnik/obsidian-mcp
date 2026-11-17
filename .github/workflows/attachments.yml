@@ -1,0 +1,24 @@
+name: Attachment extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - extensions/attachments/**
+      - .github/workflows/attachments.yml
+  pull_request:
+    paths:
+      - extensions/attachments/**
+      - .github/workflows/attachments.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the pinned image and run all extension tests
+        run: docker build --progress=plain -t kb-attachments-test extensions/attachments
