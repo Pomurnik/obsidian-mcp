@@ -9,7 +9,32 @@ The base image remains pinned to upstream **2.1.2** by digest. Upstream version
 upgrades require an explicit compatibility review and new passing tests; syncing
 upstream Git history alone does not change the pinned runtime.
 
-## First checkout on the Docker host
+## Recommended: pull the ready-to-run image
+
+GitHub Actions builds and tests the extension, then publishes a Linux amd64 image:
+
+```yaml
+image: ghcr.io/pomurnik/obsidian-mcp:attachments
+pull_policy: always
+```
+
+Use these fields in the existing Dockhand MCP service, keeping its environment,
+ports and volumes. Pull the image and recreate the service to update. No source
+checkout or local Docker build is required on the server.
+
+The `attachments` tag follows successful extension publications from `main`.
+An additional `attachments-<full-commit-sha>` tag identifies each published build.
+For an immutable deployment, use the registry image digest shown by the build.
+Pull requests run tests but cannot publish images. Authentication for publication
+uses the repository's temporary `GITHUB_TOKEN`; no personal token is stored.
+
+After the first publication, the owner must set the container package visibility
+to Public in GitHub's package settings for anonymous pulls. Repository visibility
+and package visibility are separate. Until then the image requires GHCR login.
+
+The configuration below is an alternative for building locally.
+
+## Optional: first checkout on the Docker host
 
 ```sh
 cd /opt/knowledge-base
@@ -25,7 +50,7 @@ preconditions, trash/restore, rollback after a failed write, and MCP discovery.
 The complete test suite passed on the target Linux Docker host on 2026-11-17.
 This fork includes the test HOME fix and subsequent lint-only cleanup.
 
-## Dockhand
+## Dockhand with a locally built image
 
 In the existing MCP service, set:
 
@@ -53,7 +78,7 @@ Separate mounts for AI and Hybrid prevent rename operations between them.
 Permanent deletion additionally requires `ALLOW_PERMANENT_DELETE=true`;
 the attachment delete tool defaults to trash regardless of that flag.
 
-## Pull changes from this fork
+## Optional: pull source changes and build locally
 
 ```sh
 cd /opt/knowledge-base/mcp-source

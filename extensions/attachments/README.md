@@ -37,6 +37,13 @@ ani wnętrze plików binarnych. Przenoszenie nie zmienia rozszerzenia pliku.
 
 ## Wdrożenie
 
+Gotowy obraz dla Linux amd64 jest publikowany przez GitHub Actions jako
+`ghcr.io/pomurnik/obsidian-mcp:attachments`. W Dockhand można użyć tej wartości
+w `image` oraz `pull_policy: always`, zachowując istniejące zmienne, porty i mounty.
+To zastępuje lokalne budowanie opisane poniżej. Pobranie nowego obrazu i ponowne
+wdrożenie stacka wystarcza do aktualizacji. Pierwsza publikacja wymaga ustawienia
+widoczności pakietu GHCR na Public, aby pobierać go bez logowania.
+
 1. Na knowledge-base zbuduj obraz z tego katalogu:
 
    ```sh

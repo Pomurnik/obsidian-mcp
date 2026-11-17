@@ -5,6 +5,8 @@
 > remains intact. See [attachment deployment and updates](docs/attachments-fork.md).
 > The extension Dockerfile is `extensions/attachments/Dockerfile`; the root
 > Dockerfile still builds the upstream server without the extension.
+> Ready-to-run image: `ghcr.io/pomurnik/obsidian-mcp:attachments` (Linux amd64).
+> Each publication also has an `attachments-<full-commit-sha>` tag for a specific build.
 
 [![CI](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml)
 
