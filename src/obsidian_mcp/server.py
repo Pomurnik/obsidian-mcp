@@ -49,6 +49,12 @@ from .storage.policy import (
     WritePermissionError,
 )
 from .storage.watcher import VaultWatcher
+from .tools.attachment_mutations import (
+    delete_attachment,
+    inspect_attachment,
+    move_attachment,
+    restore_attachment,
+)
 from .tools.attachments import (
     AttachmentTooLargeError,
     add_attachment,
@@ -305,6 +311,12 @@ renames, and `ENABLE_BULK_REPLACE` registers bulk replacement.
   optional `vault=<name>` argument to operate on a non-default one for that call.
 
 ### Attachments
+- `inspect_attachment_tool(path)` returns a revision without downloading file bytes.
+- When ENABLE_MOVE is enabled, `move_attachment_tool(from_path, to_path)` previews a move and
+  Markdown link updates. Commit with the returned revision and `dry_run=False`.
+- When ENABLE_DELETE is enabled, `delete_attachment_tool(path)` previews deletion; commit with
+  its revision and `dry_run=False`. It defaults to trash. `restore_attachment_tool` restores it.
+- Protected references and unsupported link syntax block attachment mutations before changes.
 - `list_attachments_tool(folder)`, `read_attachment_tool(path)`, `add_attachment_tool(path, content_base64)`
 - For large/many binary files, `create_attachment_token_tool(path, method, expires_in)` mints a short-lived,
   single-file token, then `GET`/`PUT /attachments/{path}?exp=&sig=` reads/writes raw bytes directly on disk
@@ -1494,6 +1506,68 @@ def query_notes_tool(
 
 
 # ── Attachments ───────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def inspect_attachment_tool(path: str, vault: str | None = None) -> dict:
+    """Get an attachment revision before moving/deleting; does not return file bytes."""
+    return _read_envelope(path, inspect_attachment(path))
+
+
+@_mutation_boundary
+def move_attachment_tool(
+    from_path: str, to_path: str, expected_revision: str | None = None,
+    dry_run: bool = True, vault: str | None = None,
+) -> dict:
+    """Move/rename one image, PDF or other approved attachment, updating Markdown links.
+
+    Preview first (dry_run=True), then supply its revision and dry_run=False.
+    Respects WRITE_PATHS at both ends and for every rewritten note. References
+    in protected notes block the entire move. Unsupported/ambiguous reference syntax
+    is rejected before mutation. Source and destination must share a filesystem.
+    """
+    result = move_attachment(
+        from_path, to_path, expected_revision=expected_revision, dry_run=dry_run, index=_index,
+    )
+    if not dry_run:
+        log_write('move_attachment_tool', to_path, f'moved from {from_path}')
+    return _write_envelope(result)
+
+
+@_mutation_boundary
+def delete_attachment_tool(
+    path: str, expected_revision: str | None = None,
+    trash: bool = True, dry_run: bool = True,
+    allow_broken_links: bool = False, vault: str | None = None,
+) -> dict:
+    """Delete one approved attachment, defaulting to the vault trash.
+
+    Preview first, then pass its revision and dry_run=False. References block
+    deletion by default; allow_broken_links=True explicitly leaves dangling
+    references in writable notes. References in protected notes always block.
+    Permanent deletion also requires ALLOW_PERMANENT_DELETE=true.
+    """
+    result = delete_attachment(
+        path, expected_revision=expected_revision, trash=trash,
+        dry_run=dry_run, allow_broken_links=allow_broken_links,
+    )
+    if not dry_run:
+        log_write('delete_attachment_tool', path, f'deleted attachment (trash={trash})')
+    return _write_envelope(result)
+
+
+def restore_attachment_tool(trashed_name: str, to_path: str, vault: str | None = None) -> dict:
+    """Restore one attachment from trash into a writable path; never overwrite a file."""
+    result = restore_attachment(trashed_name, to_path)
+    log_write('restore_attachment_tool', to_path, f'restored attachment from {trashed_name}')
+    return _write_envelope(result)
+
+
+if _feature_flags.enable_move:
+    mcp.tool()(move_attachment_tool)
+if _feature_flags.enable_delete:
+    mcp.tool()(delete_attachment_tool)
+    mcp.tool()(restore_attachment_tool)
+
 
 @mcp.tool()
 def list_attachments_tool(folder: str = "", vault: str | None = None) -> dict:

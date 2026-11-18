@@ -17,7 +17,7 @@ dist/
 # Local planning notes
 plan.md
 
-# Example vault (local only – jeder nutzt seinen eigenen Vault)
+# Example vault (local only – each user supplies their own vault)
 example-vault/
 
 # Lock files for file operations (vault per-file locks)

@@ -1,13 +1,5 @@
 # obsidian-mcp
 
-> **Pomurnik fork — attachment operations:** this fork adds an opt-in extension
-> for moving, deleting and restoring individual attachments. The upstream code
-> remains intact. See [attachment deployment and updates](docs/attachments-fork.md).
-> The extension Dockerfile is `extensions/attachments/Dockerfile`; the root
-> Dockerfile still builds the upstream server without the extension.
-> Ready-to-run image: `ghcr.io/pomurnik/obsidian-mcp:attachments` (Linux amd64).
-> Each publication also has an `attachments-<full-commit-sha>` tag for a specific build.
-
 [![CI](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ykoellmann/obsidian-mcp/actions/workflows/ci.yml)
 
 An MCP (Model Context Protocol) server for [Obsidian](https://obsidian.md) vaults. Connects Claude (or any MCP client) directly to your vault — read, write, search, navigate links, and manage notes, canvases, and kanban boards.
@@ -41,7 +33,7 @@ The intended setup is to host obsidian-mcp on a server or NAS where your vault i
 - **Audit log** — every write-tool call is recorded; `get_audit_log_tool` queries it
 - **Periodic Notes** — read/preview daily, weekly, monthly, quarterly, yearly journal notes from templates
 - **Canvas / Excalidraw / Kanban / Bases** *(each opt-in via its own `ENABLE_*` flag)* — read, create, and patch these Obsidian plugin formats
-- **Attachments** — list, read (text or base64), and add binary files
+- **Attachments** — list, inspect, read (text or base64), and add binary files; opt-in move, delete, and restore operations with revision checks and Markdown link updates ([details](docs/attachments.md))
 - **Two auth variants** — a static API key (Claude Code, Desktop, curl) and, optionally, GitHub OAuth (claude.ai Web/Mobile Custom Connector) — usable independently or at the same time
 - **Multi-vault** *(opt-in)* — serve several fully isolated vaults from one deployment, each identity mapped to only the vault(s) it may access
 - **Templates** — render Obsidian templates with built-in (`{{date}}`, `{{title}}`, …) and custom variables

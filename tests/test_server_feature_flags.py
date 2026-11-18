@@ -29,11 +29,13 @@ _GROUP_TOOLS = {
 }
 
 _HIGH_RISK_TOOLS = {
-    "move": {"move_note_tool"},
+    "move": {"move_note_tool", "move_attachment_tool"},
     "folder_rename": {"rename_folder_tool"},
     "bulk_replace": {"find_replace_in_vault_tool"},
     "delete": {
         "delete_tool",
+        "delete_attachment_tool",
+        "restore_attachment_tool",
         "list_trash_tool",
         "restore_tool",
     },
@@ -54,6 +56,7 @@ async def test_all_flags_disabled_by_default(monkeypatch):
     server = _reload_server(monkeypatch)
     tools = await server.mcp.list_tools()
     names = {t.name for t in tools}
+    assert "inspect_attachment_tool" in names
     for group_tools in _GROUP_TOOLS.values():
         assert names.isdisjoint(group_tools)
     for group_tools in _HIGH_RISK_TOOLS.values():

@@ -20,11 +20,11 @@ index of what exists and where to look for more.
 | **Excalidraw** ‡ | `list_excalidraw`, `read_excalidraw`, `write_excalidraw`, `patch_excalidraw` |
 | **Kanban** ‡ | `read_kanban`, `create_kanban_board`, `add_kanban_card`, `move_kanban_card`, `delete_kanban_card` |
 | **Bases** ‡ | `list_bases`, `read_base`, `write_base`, `patch_base` |
-| **Attachments** | `list_attachments`, `read_attachment`, `add_attachment`, `create_attachment_token` |
+| **Attachments** | `list_attachments`, `read_attachment`, `add_attachment`, `create_attachment_token`, `inspect_attachment`, `move_attachment`†, `delete_attachment`*, `restore_attachment`* |
 | **Templates** | `list_templates`, `create_from_template` |
 
 \* Registered only when `ENABLE_DELETE=true`.
-† Registered only when its own flag is set: `move_note` needs `ENABLE_MOVE`,
+† Registered only when its own flag is set: `move_note` and `move_attachment` need `ENABLE_MOVE`,
 `rename_folder` needs `ENABLE_FOLDER_RENAME`, `find_replace_in_vault` needs
 `ENABLE_BULK_REPLACE`. See [Configuration](configuration.md#optional-tool-groups).
 ‡ Each format is opt-in via its own `ENABLE_*` flag — see
@@ -52,3 +52,5 @@ also accepts `create_only=true`, which requires the target to be absent and
 is committed race-free. See [Response Envelope](response-envelope.md) and
 [Configuration](configuration.md#write-preconditions) for
 `REQUIRE_WRITE_PRECONDITIONS`.
+
+See [attachment operations](attachments.md) for the preview and commit workflow.

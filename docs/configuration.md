@@ -81,6 +81,10 @@ of that.
 
 ## Attachments
 
+Attachment lifecycle tools are included in the server. Move operations require
+`ENABLE_MOVE=true`; deletion and restoration require `ENABLE_DELETE=true`.
+See [attachment operations](attachments.md) for previews, revisions, and path permissions.
+
 ```env
 # MAX_ATTACHMENT_BYTES=26214400  # 25 MiB default, applies to MCP and HTTP writes
 ```
@@ -130,10 +134,10 @@ these as `PUID`/`PGID` (see [Docker & Deployment](deployment.md)).
 # ENABLE_KANBAN=true      # Kanban board tools
 # ENABLE_BASES=true       # .base file tools (Obsidian core plugin, 1.9.0+)
 
-# ENABLE_MOVE=true             # move_note_tool
+# ENABLE_MOVE=true             # move_note_tool, move_attachment_tool
 # ENABLE_FOLDER_RENAME=true    # rename_folder_tool
 # ENABLE_BULK_REPLACE=true     # find_replace_in_vault_tool
-# ENABLE_DELETE=true           # delete_tool, restore_tool, list_trash_tool
+# ENABLE_DELETE=true           # note/folder/attachment deletion and restoration, trash listing
 ```
 
 Each defaults to `false`. A disabled group's tools aren't just refused at

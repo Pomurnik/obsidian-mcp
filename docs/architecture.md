@@ -28,6 +28,7 @@ src/obsidian_mcp/
     ├── excalidraw.py               # Obsidian Excalidraw (*.excalidraw.md) tools
     ├── kanban.py                    # Obsidian Kanban plugin tools
     ├── bases.py                      # Obsidian Bases (.base YAML) tools
+    ├── attachment_mutations.py       # guarded attachment move, delete, and restore
     ├── attachments.py                 # binary and text attachment handling
     ├── templates.py                    # template rendering with variable substitution
     └── prompts.py                       # MCP Prompts (weekly_review, daily_note)
