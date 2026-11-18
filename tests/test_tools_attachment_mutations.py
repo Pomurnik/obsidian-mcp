@@ -16,6 +16,18 @@ from obsidian_mcp.tools import attachment_mutations as kb
 
 
 class LinkTests(unittest.TestCase):
+    def test_batch_rewrites_original_targets_without_cascading(self):
+        files = {"Assets/a.png", "Assets/b.png"}
+        moves = {"Assets/a.png": "Notes/b.png", "Assets/b.png": "Notes/c.png"}
+        text, count = kb._rewrite_many(
+            '![[a.png|200]] ![b](../Assets/b.png "B")',
+            "Notes/n.md",
+            moves,
+            files,
+        )
+        self.assertEqual(text, '![[Notes/b.png|200]] ![b](c.png "B")')
+        self.assertEqual(count, 2)
+
     def rewrite(self, text, files=None):
         return kb.rewrite_links(
             text,
@@ -167,6 +179,223 @@ class LinuxIntegrationTests(unittest.TestCase):
         return kb.move_attachment(
             self.source, self.dest, expected_revision=self.revision, dry_run=False, **kwargs
         )
+
+    def batch(self):
+        self.write("Assets/second.png", "second attachment")
+        self.write("Notes/batch.md", "![[photo.png]] ![[second.png|200]]")
+        return [
+            {"from_path": self.source, "to_path": self.dest},
+            {"from_path": "Assets/second.png", "to_path": "Notes/second.png"},
+        ]
+
+    def commit_batch(self, moves, preview=None):
+        preview = preview or kb.move_attachments(moves)
+        return kb.move_attachments(
+            moves,
+            dry_run=False,
+            expected_plan_revision=preview["plan_revision"],
+        )
+
+    def assert_batch_unchanged(self, moves):
+        for item in moves:
+            self.assertTrue((self.vault / item["from_path"]).exists())
+            self.assertFalse((self.vault / item["to_path"]).exists())
+        self.assertEqual(
+            (self.vault / "Notes/batch.md").read_text(), "![[photo.png]] ![[second.png|200]]"
+        )
+
+    def test_batch_preview_reads_documents_once_and_commit_writes_once(self):
+        moves = self.batch()
+        original_read = VaultStorage.read_bytes_with_revision
+        reads = []
+
+        def read(storage, path):
+            reads.append(path)
+            return original_read(storage, path)
+
+        with patch.object(VaultStorage, "read_bytes_with_revision", read):
+            preview = kb.move_attachments(moves)
+        self.assertEqual(reads.count("Notes/batch.md"), 1)
+        self.assertEqual(preview["count"], 2)
+        self.assertEqual(preview["links"], 2)
+        self.assert_batch_unchanged(moves)
+        original_write = VaultStorage.write_text_atomic
+        writes = []
+
+        def write(storage, path, text, **kwargs):
+            writes.append(path)
+            return original_write(storage, path, text, **kwargs)
+
+        with patch.object(VaultStorage, "write_text_atomic", write):
+            result = self.commit_batch(moves, preview)
+        self.assertEqual(result["status"], "moved")
+        self.assertEqual(writes, ["Notes/batch.md"])
+        self.assertEqual((self.vault / self.dest).read_bytes(), self.data)
+        self.assertEqual(
+            (self.vault / "Notes/batch.md").read_text(),
+            "![[Notes/new.png]] ![[Notes/second.png|200]]",
+        )
+
+    def test_batch_178_attachments(self):
+        moves = []
+        for i in range(178):
+            self.write(f"Assets/{i}.png", f"bytes {i}")
+            moves.append({"from_path": f"Assets/{i}.png", "to_path": f"Notes/images/{i}.png"})
+        self.write("Notes/many.md", "\n".join(f"![[Assets/{i}.png]]" for i in range(178)))
+        result = self.commit_batch(moves)
+        self.assertEqual((result["count"], result["links"]), (178, 178))
+        for i in range(178):
+            self.assertFalse((self.vault / f"Assets/{i}.png").exists())
+            self.assertEqual((self.vault / f"Notes/images/{i}.png").read_text(), f"bytes {i}")
+        self.assertEqual(
+            (self.vault / "Notes/many.md").read_text(),
+            "\n".join(f"![[Notes/images/{i}.png]]" for i in range(178)),
+        )
+
+    def test_batch_reordered_mapping_uses_same_preview(self):
+        moves = self.batch()
+        preview = kb.move_attachments(moves)
+        result = self.commit_batch(list(reversed(moves)), preview)
+        self.assertEqual(result["status"], "moved")
+
+    def test_batch_revalidates_after_locking(self):
+        moves = self.batch()
+        preview = kb.move_attachments(moves)
+        original = kb._batch_snapshot
+        calls = 0
+
+        def changed_snapshot(storage, mapping):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                self.write("Notes/late.md", "![[photo.png]]")
+            return original(storage, mapping)
+
+        with (
+            patch.object(kb, "_batch_snapshot", changed_snapshot),
+            self.assertRaisesRegex(
+                ValueError,
+                "changed during planning",
+            ),
+        ):
+            self.commit_batch(moves, preview)
+        self.assert_batch_unchanged(moves)
+
+    def test_batch_stale_preview_rejects_changed_source_note_or_mapping(self):
+        moves = self.batch()
+        preview = kb.move_attachments(moves)
+        source = self.vault / self.source
+        source.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError, "changed since preview"):
+            self.commit_batch(moves, preview)
+        source.write_bytes(self.data)
+        note = self.vault / "Notes/batch.md"
+        note.write_text("updated ![[photo.png]]")
+        with self.assertRaisesRegex(ValueError, "changed since preview"):
+            self.commit_batch(moves, preview)
+        note.write_text("![[photo.png]] ![[second.png|200]]")
+        altered = [*moves[:1], {"from_path": "Assets/second.png", "to_path": "Notes/other.png"}]
+        with self.assertRaisesRegex(ValueError, "changed since preview"):
+            self.commit_batch(altered, preview)
+        self.assert_batch_unchanged(moves)
+
+    def test_batch_requires_preview_and_rejects_invalid_or_colliding_paths(self):
+        moves = self.batch()
+        with self.assertRaisesRegex(ValueError, "Preview"):
+            kb.move_attachments(moves, dry_run=False)
+        cases = [
+            [],
+            moves * 251,
+            [moves[0], moves[0]],
+            [moves[0], {"from_path": "Assets/second.png", "to_path": self.dest}],
+            [{"from_path": self.source, "to_path": self.source}],
+            [{"from_path": self.source, "to_path": "Notes/file.pdf"}],
+            [{"from_path": self.source, "to_path": "../escape.png"}],
+            [{"from_path": self.source, "to_path": "Notes/file.png", "extra": "x"}],
+        ]
+        for case in cases:
+            with self.subTest(case=str(case)[:100]), self.assertRaises(ValueError):
+                kb.move_attachments(case)
+        with self.assertRaises(FileExistsError):
+            kb.move_attachments([{"from_path": self.source, "to_path": "Assets/second.png"}])
+        self.assert_batch_unchanged(moves)
+
+    def test_batch_new_reference_or_destination_after_preview_blocks_every_move(self):
+        moves = self.batch()
+        preview = kb.move_attachments(moves)
+        self.write("Notes/added.md", "![[photo.png]]")
+        with self.assertRaisesRegex(ValueError, "changed since preview"):
+            self.commit_batch(moves, preview)
+        (self.vault / "Notes/added.md").unlink()
+        self.write("Notes/second.png", "must survive")
+        with self.assertRaises(FileExistsError):
+            self.commit_batch(moves, preview)
+        self.assertEqual((self.vault / "Notes/second.png").read_text(), "must survive")
+        self.assertTrue((self.vault / self.source).exists())
+
+    def test_batch_protected_and_unsupported_references_block_every_move(self):
+        moves = self.batch()
+        for path, content, error in [
+            ("ReadOnly/n.md", "![[photo.png]]", PermissionError),
+            ("Notes/map.canvas", '{"file":"Assets/second.png"}', ValueError),
+            ("Notes/literal.md", "cover: second.png", ValueError),
+        ]:
+            self.write(path, content)
+            with self.assertRaises(error):
+                kb.move_attachments(moves)
+            self.assert_batch_unchanged(moves)
+            (self.vault / path).unlink()
+        with self.assertRaises(PermissionError):
+            kb.move_attachments([{"from_path": self.source, "to_path": "ReadOnly/photo.png"}])
+
+    def test_batch_rollback_after_second_move_failure(self):
+        moves = self.batch()
+        preview = kb.move_attachments(moves)
+        original = VaultStorage.move
+
+        def fail(storage, source, destination, **kwargs):
+            if source == "Assets/second.png":
+                raise OSError("simulated cross-device failure")
+            return original(storage, source, destination, **kwargs)
+
+        with (
+            patch.object(VaultStorage, "move", fail),
+            self.assertRaisesRegex(RuntimeError, "rolled back"),
+        ):
+            self.commit_batch(moves, preview)
+        self.assert_batch_unchanged(moves)
+
+    def test_batch_rollback_after_second_note_failure(self):
+        moves = self.batch()
+        self.write("Notes/z.md", "![[photo.png]]")
+        original = VaultStorage.write_text_atomic
+
+        def fail(storage, path, content, **kwargs):
+            if path == "Notes/z.md":
+                raise OSError("simulated disk error")
+            return original(storage, path, content, **kwargs)
+
+        with (
+            patch.object(VaultStorage, "write_text_atomic", fail),
+            self.assertRaisesRegex(RuntimeError, "rolled back"),
+        ):
+            self.commit_batch(moves)
+        self.assert_batch_unchanged(moves)
+
+    def test_batch_rollback_conflict_reports_paths_without_overwriting_external_edit(self):
+        moves = self.batch()
+
+        def fail(storage, path, content, **kwargs):
+            (self.vault / self.dest).write_bytes(b"external edit")
+            raise OSError("simulated disk error")
+
+        with (
+            patch.object(VaultStorage, "write_text_atomic", fail),
+            self.assertRaisesRegex(RuntimeError, "Partial batch rollback.*Notes/new.png"),
+        ):
+            self.commit_batch(moves)
+        self.assertEqual((self.vault / self.dest).read_bytes(), b"external edit")
+        self.assertTrue((self.vault / "Assets/second.png").exists())
 
     def test_preview_is_read_only_and_commit_updates_links(self):
         self.write("Notes/n.md", "![[photo.png|300]]\n![x](../Assets/Attachments/photo.png)")
@@ -341,6 +570,22 @@ class LinuxIntegrationTests(unittest.TestCase):
                 )
                 self.assertEqual(result.structured_content["meta"]["action"], "restored")
                 self.assertEqual((self.vault / self.source).read_bytes(), self.data)
+                moves = self.batch()
+                preview = await client.call_tool("move_attachments_tool", {"moves": moves})
+                self.assertTrue(preview.structured_content["meta"]["dry_run"])
+                result = await client.call_tool(
+                    "move_attachments_tool",
+                    {
+                        "moves": moves,
+                        "dry_run": False,
+                        "expected_plan_revision": preview.structured_content["data"][
+                            "plan_revision"
+                        ],
+                    },
+                )
+                self.assertEqual(result.structured_content["meta"]["action"], "moved")
+                self.assertEqual(result.structured_content["data"]["count"], 2)
+                self.assertEqual((self.vault / self.dest).read_bytes(), self.data)
 
         asyncio.run(exercise())
 

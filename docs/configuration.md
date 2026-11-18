@@ -134,7 +134,7 @@ these as `PUID`/`PGID` (see [Docker & Deployment](deployment.md)).
 # ENABLE_KANBAN=true      # Kanban board tools
 # ENABLE_BASES=true       # .base file tools (Obsidian core plugin, 1.9.0+)
 
-# ENABLE_MOVE=true             # move_note_tool, move_attachment_tool
+# ENABLE_MOVE=true             # move_note_tool, move_attachment_tool, move_attachments_tool
 # ENABLE_FOLDER_RENAME=true    # rename_folder_tool
 # ENABLE_BULK_REPLACE=true     # find_replace_in_vault_tool
 # ENABLE_DELETE=true           # note/folder/attachment deletion and restoration, trash listing

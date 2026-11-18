@@ -33,7 +33,7 @@ The intended setup is to host obsidian-mcp on a server or NAS where your vault i
 - **Audit log** — every write-tool call is recorded; `get_audit_log_tool` queries it
 - **Periodic Notes** — read/preview daily, weekly, monthly, quarterly, yearly journal notes from templates
 - **Canvas / Excalidraw / Kanban / Bases** *(each opt-in via its own `ENABLE_*` flag)* — read, create, and patch these Obsidian plugin formats
-- **Attachments** — list, inspect, read (text or base64), and add binary files; opt-in move, delete, and restore operations with revision checks and Markdown link updates ([details](docs/attachments.md))
+- **Attachments** — list, inspect, read (text or base64), and add binary files; opt-in move, delete, and restore operations with revision checks and Markdown link updates. Move up to 500 attachments with one batch preview and commit ([details](docs/attachments.md)).
 - **Two auth variants** — a static API key (Claude Code, Desktop, curl) and, optionally, GitHub OAuth (claude.ai Web/Mobile Custom Connector) — usable independently or at the same time
 - **Multi-vault** *(opt-in)* — serve several fully isolated vaults from one deployment, each identity mapped to only the vault(s) it may access
 - **Templates** — render Obsidian templates with built-in (`{{date}}`, `{{title}}`, …) and custom variables

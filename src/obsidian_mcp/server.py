@@ -50,9 +50,11 @@ from .storage.policy import (
 )
 from .storage.watcher import VaultWatcher
 from .tools.attachment_mutations import (
+    AttachmentMove,
     delete_attachment,
     inspect_attachment,
     move_attachment,
+    move_attachments,
     restore_attachment,
 )
 from .tools.attachments import (
@@ -311,6 +313,10 @@ renames, and `ENABLE_BULK_REPLACE` registers bulk replacement.
   optional `vault=<name>` argument to operate on a non-default one for that call.
 
 ### Attachments
+- Prefer `move_attachments_tool(moves)` for multiple attachments (up to 500 per batch).
+  Each item has from_path and to_path. Preview once, then repeat the same moves with
+  dry_run=False and expected_plan_revision from data.plan_revision. Do not preview
+  and move files individually when a batch is available. Requires ENABLE_MOVE.
 - `inspect_attachment_tool(path)` returns a revision without downloading file bytes.
 - When ENABLE_MOVE is enabled, `move_attachment_tool(from_path, to_path)` previews a move and
   Markdown link updates. Commit with the returned revision and `dry_run=False`.
@@ -1562,8 +1568,36 @@ def restore_attachment_tool(trashed_name: str, to_path: str, vault: str | None =
     return _write_envelope(result)
 
 
+@_mutation_boundary
+def move_attachments_tool(
+    moves: list[AttachmentMove], dry_run: bool = True,
+    expected_plan_revision: str | None = None, vault: str | None = None,
+) -> dict:
+    """Move 1–500 attachments in one batch, updating each affected Markdown note once.
+
+    Prefer this over repeated move_attachment_tool calls for multiple files.
+    moves: [{from_path, to_path}, ...]. Preview defaults to dry_run=True and
+    returns data.plan_revision, data.moves, data.updated_links_in and data.links.
+    Commit the same list with dry_run=False and that expected_plan_revision.
+    The token checks every source and affected note; changed plans require a new
+    preview. Permissions and collisions are checked for the whole batch first.
+    No overwrites, chains or swaps. References in protected notes block the batch.
+    On ordinary failures, completed moves and note edits are rolled back where
+    revisions still match; a rollback conflict reports paths needing inspection.
+    This is not a crash-safe transaction. Files must share a filesystem.
+    """
+    result = move_attachments(
+        moves, dry_run=dry_run, expected_plan_revision=expected_plan_revision, index=_index,
+    )
+    if not dry_run:
+        for item in result["moves"]:
+            log_write("move_attachments_tool", item["to_path"], f"moved from {item['from_path']}")
+    return _write_envelope(result)
+
+
 if _feature_flags.enable_move:
     mcp.tool()(move_attachment_tool)
+    mcp.tool()(move_attachments_tool)
 if _feature_flags.enable_delete:
     mcp.tool()(delete_attachment_tool)
     mcp.tool()(restore_attachment_tool)
