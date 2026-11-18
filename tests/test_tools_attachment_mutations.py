@@ -519,8 +519,12 @@ class LinuxIntegrationTests(unittest.TestCase):
         from fastmcp import Client
 
         from obsidian_mcp import server
+        from obsidian_mcp.domain.index import VaultIndex
 
         importlib.reload(server)
+        index = VaultIndex(self.vault, policy=VaultAccessPolicy.from_config(config.get_config()))
+        index.build()
+        server._indices[config.get_config().resolve_vault_name()] = index
 
         def restore_server():
             self.env_patch.stop()
@@ -535,6 +539,7 @@ class LinuxIntegrationTests(unittest.TestCase):
                 self.assertTrue(
                     {
                         "move_attachment_tool",
+                        "move_attachments_tool",
                         "delete_attachment_tool",
                         "restore_attachment_tool",
                         "inspect_attachment_tool",
